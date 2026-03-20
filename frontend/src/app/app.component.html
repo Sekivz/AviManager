@@ -1,0 +1,828 @@
+<div class="layout-wrapper">
+
+  <!-- ══ ONBOARDING OVERLAY ═══════════════════════════════════ -->
+  <div class="onboarding-overlay" *ngIf="onboardingActivo()">
+    <div class="onboarding-card">
+      <div class="onb-steps-bar">
+        <div *ngFor="let s of onboardingSteps; let i=index"
+          class="onb-step-dot"
+          [class.onb-step-dot--active]="i === onboardingStep()"
+          [class.onb-step-dot--done]="i < onboardingStep()">
+        </div>
+      </div>
+      <div class="onb-icon-wrap">
+        <span class="material-icons-sharp">{{ onboardingSteps[onboardingStep()].icon }}</span>
+      </div>
+      <h2 class="onb-title">{{ onboardingSteps[onboardingStep()].title }}</h2>
+      <p class="onb-desc">{{ onboardingSteps[onboardingStep()].desc }}</p>
+      <div class="onb-footer">
+        <button class="onb-skip" (click)="finOnboarding()">{{ t('onboardingSkip') }}</button>
+        <button class="onb-next" (click)="nextOnboarding()">
+          {{ onboardingStep() < onboardingSteps.length-1 ? t('onboardingNext') : t('onboardingFin') }}
+          <span class="material-icons-sharp">{{ onboardingStep() < onboardingSteps.length-1 ? 'arrow_forward' : 'rocket_launch' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SIDEBAR ═══════════════════════════════════════════════ -->
+  <aside class="sidebar" [class.sidebar--open]="sidebarOpen()">
+    <div class="sidebar__logo">
+      <div class="logo-icon"><span class="material-icons-sharp">egg_alt</span></div>
+      <span class="logo-text" *ngIf="sidebarOpen()">{{ t('appName') }}</span>
+    </div>
+    <nav class="sidebar__nav">
+      <button *ngFor="let item of navItems"
+        class="nav-item" [id]="'nav-'+item.id"
+        [class.nav-item--active]="activeNav()===item.id"
+        (click)="activeNav.set(item.id)">
+        <span class="material-icons-sharp nav-icon">{{ item.icon }}</span>
+        <span class="nav-label" *ngIf="sidebarOpen()">{{ item.label }}</span>
+        <span class="nav-badge" *ngIf="item.id==='alertas' && alertasNoLeidas()>0 && sidebarOpen()">{{ alertasNoLeidas() }}</span>
+      </button>
+    </nav>
+    <div class="sidebar__footer" *ngIf="sidebarOpen()">
+      <div class="user-card" (click)="activeNav.set('config')">
+        <div class="user-avatar">{{ userInitials }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ userName() }}</span>
+          <span class="user-role">{{ t('administrador') }}</span>
+        </div>
+        <span class="material-icons-sharp edit-icon">chevron_right</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══════════════════════════════════════════════════ -->
+  <div class="main-area">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar__left">
+        <button class="icon-btn" (click)="sidebarOpen.set(!sidebarOpen())">
+          <span class="material-icons-sharp">menu</span>
+        </button>
+        <div class="search-box">
+          <span class="material-icons-sharp search-icon">search</span>
+          <input type="text" placeholder="Buscar..." class="search-input" />
+        </div>
+      </div>
+      <div class="topbar__right">
+        <button class="export-btn export-btn--csv" (click)="exportarCSV()">
+          <span class="material-icons-sharp">table_view</span><span class="export-label">CSV</span>
+        </button>
+        <button class="export-btn export-btn--pdf" (click)="exportarPDF()">
+          <span class="material-icons-sharp">picture_as_pdf</span><span class="export-label">PDF</span>
+        </button>
+        <div class="dropdown-host">
+          <button class="icon-btn icon-btn--rel" (click)="alertasPanelOpen.set(!alertasPanelOpen())">
+            <span class="material-icons-sharp">notifications</span>
+            <span class="badge-dot" *ngIf="alertasNoLeidas()>0">{{ alertasNoLeidas() }}</span>
+          </button>
+          <div class="dropdown-panel" *ngIf="alertasPanelOpen()">
+            <div class="dropdown-panel__header">
+              <span>{{ t('alertas') }}</span>
+              <button class="link-btn" (click)="marcarTodasLeidas()">{{ t('marcarTodas') }}</button>
+            </div>
+            <div class="dropdown-panel__body">
+              <ng-container *ngIf="alertas().length>0; else noAlDD">
+                <div *ngFor="let a of alertas(); trackBy:trackById" class="alerta-item"
+                  [class.alerta-item--danger]="a.tipo==='danger'"
+                  [class.alerta-item--warning]="a.tipo==='warning'"
+                  [class.alerta-item--leida]="a.leida">
+                  <span class="material-icons-sharp alerta-item__icon">{{ a.tipo==='danger'?'emergency':'warning' }}</span>
+                  <div class="alerta-item__body">
+                    <p class="alerta-item__title">{{ a.titulo }}</p>
+                    <p class="alerta-item__msg">{{ a.mensaje }}</p>
+                  </div>
+                  <button *ngIf="!a.leida" class="check-btn" (click)="marcarAlertaLeida(a.id)">
+                    <span class="material-icons-sharp">done</span>
+                  </button>
+                </div>
+              </ng-container>
+              <ng-template #noAlDD>
+                <div class="empty-sm"><span class="material-icons-sharp">check_circle</span><p>{{ t('sinAlertasActivas') }}</p></div>
+              </ng-template>
+            </div>
+          </div>
+        </div>
+        <button class="icon-btn" (click)="darkMode.set(!darkMode())" [title]="darkMode()?t('modoClaro'):t('modoOscuro')">
+          <span class="material-icons-sharp">{{ darkMode()?'light_mode':'dark_mode' }}</span>
+        </button>
+        <div class="topbar-avatar" (click)="activeNav.set('config')">{{ userInitials }}</div>
+      </div>
+    </header>
+
+    <!-- ═══════════════ PAGE BODY ════════════════════════════ -->
+    <div class="page">
+
+      <!-- ╔══ DASHBOARD ═══════════════════════════════════════╗ -->
+      <ng-container *ngIf="activeNav()==='dashboard'">
+        <div class="page__title-row anim-up">
+          <div>
+            <h1 class="page__title">{{ t('dashboardTitle') }}</h1>
+            <p class="page__subtitle">{{ t('dashboardSub') }}</p>
+          </div>
+          <button class="btn-primary" (click)="activeNav.set('lotes');abrirModalNuevo()">
+            <span class="material-icons-sharp">add</span>{{ t('nuevoLote') }}
+          </button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-card--blue anim-up" style="animation-delay:.05s">
+            <div class="kpi-card__body">
+              <p class="kpi-label">{{ t('invertotal') }}</p>
+              <h2 class="kpi-value">${{ totalInversion()|number:'1.0-0' }}</h2>
+              <p class="kpi-trend kpi-trend--up"><span class="material-icons-sharp">trending_up</span>{{ t('capitalActivo') }}</p>
+            </div>
+            <div class="kpi-icon kpi-icon--blue"><span class="material-icons-sharp">payments</span></div>
+          </div>
+          <div class="kpi-card kpi-card--emerald anim-up" style="animation-delay:.10s">
+            <div class="kpi-card__body">
+              <p class="kpi-label">{{ t('gananciaEst') }}</p>
+              <h2 class="kpi-value">${{ gananciaEstimada()|number:'1.0-0' }}</h2>
+              <p class="kpi-trend kpi-trend--up"><span class="material-icons-sharp">trending_up</span>{{ t('proyeccion') }}</p>
+            </div>
+            <div class="kpi-icon kpi-icon--emerald"><span class="material-icons-sharp">show_chart</span></div>
+          </div>
+          <div class="kpi-card anim-up" [ngClass]="getMortKpiClass()" style="animation-delay:.15s">
+            <div class="kpi-card__body">
+              <p class="kpi-label">{{ t('mortalidadProm') }}</p>
+              <h2 class="kpi-value">{{ mortalidadPromedio()|number:'1.2-2' }}%</h2>
+              <p class="kpi-trend" [ngClass]="'kpi-trend--'+getMortTrendClass()">
+                <span class="material-icons-sharp">{{ mortalidadPromedio()>=3?'warning':'check_circle' }}</span>{{ getMortTrendMsg() }}
+              </p>
+            </div>
+            <div class="kpi-icon" [ngClass]="'kpi-icon--'+getMortIconClass()"><span class="material-icons-sharp">monitor_heart</span></div>
+          </div>
+          <div class="kpi-card kpi-card--violet anim-up" style="animation-delay:.20s">
+            <div class="kpi-card__body">
+              <p class="kpi-label">{{ t('totalAves') }}</p>
+              <h2 class="kpi-value">{{ totalAves()|number }}</h2>
+              <p class="kpi-trend kpi-trend--up"><span class="material-icons-sharp">egg</span>{{ lotes().length }} {{ t('lotesActivos') }}</p>
+            </div>
+            <div class="kpi-icon kpi-icon--violet"><span class="material-icons-sharp">pets</span></div>
+          </div>
+        </div>
+
+        <!-- Charts + Tabla -->
+        <div class="content-grid">
+          <div class="card">
+            <div class="card__header">
+              <h3 class="card__title"><span class="material-icons-sharp">insights</span>{{ t('tendencias') }}</h3>
+              <div class="tab-group">
+                <button class="tab-btn" [class.tab-btn--active]="chartTab()==='mortalidad'" (click)="chartTab.set('mortalidad')">{{ t('mortalidad') }}</button>
+                <button class="tab-btn" [class.tab-btn--active]="chartTab()==='crecimiento'" (click)="chartTab.set('crecimiento')">{{ t('crecimiento') }}</button>
+              </div>
+            </div>
+            <div class="chart-body" *ngIf="chartTab()==='mortalidad'">
+              <p class="chart-axis-label">{{ t('mortalidadPct') }}</p>
+              <div class="v-chart">
+                <div class="v-chart__grid">
+                  <span *ngFor="let v of [15,12,9,6,3,0]" class="grid-tick">{{v}}%</span>
+                </div>
+                <div class="v-chart__bars">
+                  <div *ngFor="let b of chartBarsMortalidad" class="bar-col">
+                    <div class="bar-col__track">
+                      <div class="bar-col__fill" [style.height.%]="(b.pct/15)*100" [style.background]="b.color">
+                        <span class="bar-col__tip">{{b.pct.toFixed(1)}}%</span>
+                      </div>
+                    </div>
+                    <span class="bar-col__label">{{b.galpon}}</span>
+                  </div>
+                </div>
+                <div class="umbral-line"><span class="umbral-tag">{{ t('umbralPct') }}</span></div>
+              </div>
+            </div>
+            <div class="chart-body" *ngIf="chartTab()==='crecimiento'">
+              <p class="chart-axis-label">PESO PROMEDIO (KG)</p>
+              <div class="h-chart">
+                <div *ngFor="let b of chartBarsCrecimiento" class="h-bar-row">
+                  <span class="h-bar-label">{{b.galpon}}</span>
+                  <div class="h-bar-track"><div class="h-bar-fill" [style.width.%]="(b.kg/maxKg)*100"></div></div>
+                  <span class="h-bar-val">{{b.kg}} kg</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__header">
+              <h3 class="card__title"><span class="material-icons-sharp">inventory_2</span>{{ t('gestionLotes') }}</h3>
+              <span class="count-chip">{{ lotes().length }} {{ t('lotesCrud') }}</span>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead><tr>
+                  <th>{{ t('galpon') }}</th><th>{{ t('aves') }}</th>
+                  <th>{{ t('mortalidad') }}</th><th>{{ t('inversion') }}</th>
+                  <th>{{ t('ganancia') }}</th><th>{{ t('acciones') }}</th>
+                </tr></thead>
+                <tbody>
+                  <tr *ngFor="let lote of lotes(); trackBy:trackById" class="data-row">
+                    <td><span class="galpon-name"><span class="pulse-dot"></span>{{lote.galpon}}</span></td>
+                    <td><span class="aves-actual">{{lote.cantidadActual|number}}</span><span class="aves-sep"> / </span><span class="aves-total">{{lote.cantidadInicial|number}}</span></td>
+                    <td><span class="mort-val" [ngClass]="getMortClass(lote)">{{calcMortalidad(lote)|number:'1.2-2'}}%</span></td>
+                    <td class="td-mono">${{calcInversion(lote)|number:'1.0-0'}}</td>
+                    <td class="td-mono td-green">${{calcGanancia(lote)|number:'1.0-0'}}</td>
+                    <td>
+                      <div class="action-group">
+                        <button class="action-btn action-btn--edit"   (click)="abrirModalEditar(lote)"><span class="material-icons-sharp">edit</span></button>
+                        <button class="action-btn action-btn--baja"   (click)="abrirModalBaja(lote)"><span class="material-icons-sharp">remove_circle</span></button>
+                        <button class="action-btn action-btn--delete" (click)="eliminarLote(lote.id)"><span class="material-icons-sharp">delete</span></button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div *ngIf="lotes().length===0" class="empty-table">
+                <span class="material-icons-sharp">inventory_2</span>
+                <p>No hay lotes registrados</p>
+                <button class="btn-primary btn-primary--sm" (click)="abrirModalNuevo()">Crear primer lote</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ╔══ LOTES ════════════════════════════════════════════╗ -->
+      <ng-container *ngIf="activeNav()==='lotes'">
+        <div class="page__title-row anim-up">
+          <div><h1 class="page__title">{{ t('lotesTitle') }}</h1><p class="page__subtitle">{{ t('lotesSub') }}</p></div>
+          <div class="btn-group">
+            <button class="btn-outline" (click)="importModalOpen.set(true)">
+              <span class="material-icons-sharp">upload_file</span>{{ t('importarCSV') }}
+            </button>
+            <button class="btn-outline" (click)="historialModalOpen.set(true)">
+              <span class="material-icons-sharp">history</span>{{ t('historialCambios') }}
+            </button>
+            <button class="btn-primary" (click)="abrirModalNuevo()">
+              <span class="material-icons-sharp">add</span>{{ t('nuevoLote') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-row anim-up" style="animation-delay:.05s">
+          <div class="stat-pill stat-pill--blue"><span class="material-icons-sharp">inventory_2</span><span>{{ lotes().length }} {{ t('lotesCrud') }}</span></div>
+          <div class="stat-pill stat-pill--emerald"><span class="material-icons-sharp">pets</span><span>{{ totalAves()|number }} {{ t('aves') }}</span></div>
+          <div class="stat-pill" [class.stat-pill--red]="mortalidadPromedio()>=5" [class.stat-pill--amber]="mortalidadPromedio()>=3&&mortalidadPromedio()<5" [class.stat-pill--emerald]="mortalidadPromedio()<3">
+            <span class="material-icons-sharp">monitor_heart</span><span>{{ mortalidadPromedio()|number:'1.2-2' }}%</span>
+          </div>
+          <div class="stat-pill stat-pill--red"><span class="material-icons-sharp">trending_down</span><span>{{ totalBajas() }} bajas totales</span></div>
+        </div>
+
+        <!-- Tabla completa lotes -->
+        <div class="card anim-up" style="animation-delay:.10s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">table_rows</span>{{ t('gestionLotes') }}</h3>
+            <span class="count-chip">{{ lotes().length }} {{ t('lotesCrud') }}</span>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table data-table--full">
+              <thead><tr>
+                <th>#</th><th>{{ t('galpon') }}</th><th>{{ t('aves') }}</th>
+                <th>{{ t('mortalidad') }}</th><th>{{ t('inversion') }}</th><th>{{ t('ganancia') }}</th>
+                <th>{{ t('pesoPromedio') }}</th><th>{{ t('alimentoDiario') }}</th>
+                <th>{{ t('fechaIngreso') }}</th><th>{{ t('acciones') }}</th>
+              </tr></thead>
+              <tbody>
+                <tr *ngFor="let lote of lotes(); let i=index; trackBy:trackById" class="data-row">
+                  <td class="td-index">{{ i+1 }}</td>
+                  <td><span class="galpon-name"><span class="pulse-dot"></span>{{ lote.galpon }}</span></td>
+                  <td>
+                    <div class="aves-cell-full">
+                      <div><span class="aves-actual">{{ lote.cantidadActual|number }}</span><span class="aves-sep"> / </span><span class="aves-total">{{ lote.cantidadInicial|number }}</span></div>
+                      <div class="mini-progress"><div class="mini-progress__fill" [ngClass]="getMortClass(lote)" [style.width.%]="(lote.cantidadActual/lote.cantidadInicial)*100"></div></div>
+                    </div>
+                  </td>
+                  <td><span class="mort-badge" [ngClass]="getMortClass(lote)">{{ calcMortalidad(lote)|number:'1.2-2' }}%</span></td>
+                  <td class="td-mono">${{ calcInversion(lote)|number:'1.0-0' }}</td>
+                  <td class="td-mono td-green">${{ calcGanancia(lote)|number:'1.0-0' }}</td>
+                  <td class="td-mono">{{ lote.pesoPromedio ?? '-' }} kg</td>
+                  <td class="td-mono">{{ lote.alimentoDiario ?? '-' }} kg</td>
+                  <td class="td-date">{{ lote.fechaIngreso }}</td>
+                  <td>
+                    <div class="action-group">
+                      <button class="action-btn action-btn--edit"   (click)="abrirModalEditar(lote)"><span class="material-icons-sharp">edit</span></button>
+                      <button class="action-btn action-btn--baja"   (click)="abrirModalBaja(lote)"><span class="material-icons-sharp">remove_circle</span></button>
+                      <button class="action-btn action-btn--delete" (click)="eliminarLote(lote.id)"><span class="material-icons-sharp">delete</span></button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div *ngIf="lotes().length===0" class="empty-table">
+              <span class="material-icons-sharp">inventory_2</span><p>No hay lotes</p>
+              <button class="btn-primary btn-primary--sm" (click)="abrirModalNuevo()">Crear primer lote</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Registro de bajas -->
+        <div class="card anim-up" style="animation-delay:.15s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">trending_down</span>Registro de Bajas</h3>
+            <button class="btn-outline-sm" (click)="exportarBajasCSV()">
+              <span class="material-icons-sharp">table_view</span>Exportar bajas
+            </button>
+          </div>
+          <div class="table-scroll">
+            <ng-container *ngIf="bajas().length>0; else noBajas">
+              <table class="data-table">
+                <thead><tr><th>Fecha</th><th>Galpón</th><th>Cantidad</th><th>Causa</th><th>Notas</th><th>Usuario</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let b of bajas(); trackBy:trackById" class="data-row">
+                    <td class="td-date">{{ b.fecha }}</td>
+                    <td><span class="galpon-name"><span class="pulse-dot"></span>{{ b.galpon }}</span></td>
+                    <td><span class="mort-badge mort-red">-{{ b.cantidad }}</span></td>
+                    <td><span class="causa-chip causa-chip--{{b.causa}}">{{ t('cause'+b.causa.charAt(0).toUpperCase()+b.causa.slice(1)) }}</span></td>
+                    <td class="td-detail">{{ b.notas || '—' }}</td>
+                    <td>{{ b.usuario }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </ng-container>
+            <ng-template #noBajas>
+              <div class="empty-sm" style="padding:28px"><span class="material-icons-sharp">check_circle</span><p>Sin bajas registradas</p></div>
+            </ng-template>
+          </div>
+        </div>
+
+        <!-- Historial preview -->
+        <div class="card anim-up" style="animation-delay:.20s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">history</span>{{ t('historialCambios') }}</h3>
+            <div class="btn-group-sm">
+              <button class="btn-outline-sm" (click)="exportarHistorialPDF()"><span class="material-icons-sharp">picture_as_pdf</span>{{ t('descargarPDF') }}</button>
+              <button class="btn-outline-sm" (click)="historialModalOpen.set(true)"><span class="material-icons-sharp">open_in_full</span>Ver todo</button>
+            </div>
+          </div>
+          <div class="historial-list">
+            <ng-container *ngIf="historial().length>0; else noHist">
+              <div *ngFor="let h of historial().slice(0,8); trackBy:trackById" class="hist-item">
+                <div class="hist-dot" [ngClass]="historialClass(h.tipo)"><span class="material-icons-sharp">{{ historialIcono(h.tipo) }}</span></div>
+                <div class="hist-body">
+                  <p class="hist-desc">{{ h.descripcion }}</p>
+                  <p class="hist-detail">{{ h.detalle }}</p>
+                  <span class="hist-time">{{ formatTime(h.timestamp) }} · {{ h.usuario }}</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noHist>
+              <div class="empty-sm"><span class="material-icons-sharp">history</span><p>{{ t('sinHistorial') }}</p></div>
+            </ng-template>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ╔══ ALERTAS ══════════════════════════════════════════╗ -->
+      <ng-container *ngIf="activeNav()==='alertas'">
+        <div class="page__title-row anim-up">
+          <div><h1 class="page__title">{{ t('alertasTitle') }}</h1><p class="page__subtitle">{{ t('alertasSub') }}</p></div>
+          <button class="btn-outline" *ngIf="alertasNoLeidas()>0" (click)="marcarTodasLeidas()">
+            <span class="material-icons-sharp">done_all</span>{{ t('marcarTodas') }}
+          </button>
+        </div>
+
+        <div class="stats-row anim-up" style="animation-delay:.05s">
+          <div class="stat-pill stat-pill--red"><span class="material-icons-sharp">emergency</span><span>{{ alertasCriticas() }} críticas</span></div>
+          <div class="stat-pill stat-pill--amber"><span class="material-icons-sharp">warning</span><span>{{ alertasAvisos() }} avisos</span></div>
+          <div class="stat-pill stat-pill--emerald"><span class="material-icons-sharp">check_circle</span><span>{{ alertasResueltas() }} resueltas</span></div>
+        </div>
+
+        <div class="card anim-up" style="animation-delay:.10s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">notifications_active</span>{{ t('alertasTitle') }}</h3>
+            <span class="badge-dot-inline" *ngIf="alertasNoLeidas()>0">{{ alertasNoLeidas() }} nuevas</span>
+          </div>
+          <div class="alertas-full-list">
+            <ng-container *ngIf="alertas().length>0; else noAlFull">
+              <div *ngFor="let a of alertas(); trackBy:trackById" class="alerta-full-item"
+                [class.alerta-full--danger]="a.tipo==='danger'"
+                [class.alerta-full--warning]="a.tipo==='warning'"
+                [class.alerta-full--leida]="a.leida">
+                <div class="alerta-full-ico"><span class="material-icons-sharp">{{ a.tipo==='danger'?'emergency':'warning' }}</span></div>
+                <div class="alerta-full-body">
+                  <p class="alerta-full-title">{{ a.titulo }}</p>
+                  <p class="alerta-full-msg">{{ a.mensaje }}</p>
+                  <span class="alerta-full-time">{{ formatTime(a.timestamp) }}</span>
+                </div>
+                <div class="alerta-full-actions">
+                  <span class="leida-chip" *ngIf="a.leida">Resuelta</span>
+                  <button *ngIf="!a.leida" class="btn-resolve" (click)="marcarAlertaLeida(a.id)">
+                    <span class="material-icons-sharp">check_circle</span>Resolver
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noAlFull>
+              <div class="empty-page"><span class="material-icons-sharp">check_circle</span><p>{{ t('todoNormal') }}</p><span>No hay alertas activas</span></div>
+            </ng-template>
+          </div>
+        </div>
+
+        <!-- Bajas por causa chart en alertas -->
+        <div class="card anim-up" style="animation-delay:.15s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">bar_chart</span>Bajas por Causa</h3>
+          </div>
+          <div class="chart-body">
+            <div class="h-chart">
+              <div *ngFor="let b of chartBajasXCausa" class="h-bar-row">
+                <span class="h-bar-label" style="text-transform:capitalize">{{ t('cause'+b.causa.charAt(0).toUpperCase()+b.causa.slice(1)) }}</span>
+                <div class="h-bar-track"><div class="h-bar-fill" [style.width.%]="(b.total/maxBajaCausa)*100" [style.background]="b.color"></div></div>
+                <span class="h-bar-val">{{ b.total }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Historial en alertas -->
+        <div class="card anim-up" style="animation-delay:.20s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">history</span>{{ t('historialCambios') }}</h3>
+            <button class="btn-outline-sm" (click)="exportarHistorialPDF()"><span class="material-icons-sharp">picture_as_pdf</span>{{ t('descargarPDF') }}</button>
+          </div>
+          <div class="historial-list">
+            <ng-container *ngIf="historial().length>0; else noHistAl">
+              <div *ngFor="let h of historial(); trackBy:trackById" class="hist-item">
+                <div class="hist-dot" [ngClass]="historialClass(h.tipo)"><span class="material-icons-sharp">{{ historialIcono(h.tipo) }}</span></div>
+                <div class="hist-body">
+                  <p class="hist-desc">{{ h.descripcion }}</p>
+                  <p class="hist-detail">{{ h.detalle }}</p>
+                  <span class="hist-time">{{ formatTime(h.timestamp) }} · {{ h.usuario }}</span>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #noHistAl>
+              <div class="empty-sm"><span class="material-icons-sharp">history</span><p>{{ t('sinHistorial') }}</p></div>
+            </ng-template>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ╔══ REPORTES ═════════════════════════════════════════╗ -->
+      <ng-container *ngIf="activeNav()==='reportes'">
+        <div class="page__title-row anim-up">
+          <div><h1 class="page__title">{{ t('reportesTitle') }}</h1><p class="page__subtitle">{{ t('reportesSub') }}</p></div>
+          <div class="btn-group">
+            <button class="btn-outline" (click)="exportarCSV()"><span class="material-icons-sharp">table_view</span>CSV</button>
+            <button class="btn-primary" (click)="exportarPDF()"><span class="material-icons-sharp">picture_as_pdf</span>{{ t('descargarPDF') }}</button>
+          </div>
+        </div>
+
+        <!-- Control días proyección -->
+        <div class="card proyeccion-control anim-up" style="animation-delay:.05s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">timeline</span>{{ t('proyeccionTitle') }}</h3>
+            <div class="dias-control">
+              <span class="dias-label">{{ t('diasRestantes') }}:</span>
+              <input type="range" min="7" max="90" step="1" class="range-input" [(ngModel)]="diasVentaVal" (input)="diasVenta.set(diasVentaVal)" />
+              <span class="dias-val">{{ diasVenta() }} días</span>
+            </div>
+          </div>
+
+          <!-- KPIs proyección -->
+          <div class="proyeccion-kpis">
+            <div class="proy-kpi">
+              <span class="material-icons-sharp" style="color:var(--emerald)">savings</span>
+              <div>
+                <p class="proy-kpi-label">Ganancia Total Proyectada</p>
+                <p class="proy-kpi-val" style="color:var(--emerald)">${{ gananciaTotal()|number:'1.0-0' }}</p>
+              </div>
+            </div>
+            <div class="proy-kpi">
+              <span class="material-icons-sharp" style="color:var(--blue)">percent</span>
+              <div>
+                <p class="proy-kpi-label">ROI Promedio</p>
+                <p class="proy-kpi-val" [style.color]="roiPromedio()>=0?'var(--emerald)':'var(--red)'">{{ roiPromedio()|number:'1.1-1' }}%</p>
+              </div>
+            </div>
+            <div class="proy-kpi">
+              <span class="material-icons-sharp" style="color:var(--violet)">payments</span>
+              <div>
+                <p class="proy-kpi-label">Inversión Total</p>
+                <p class="proy-kpi-val" style="color:var(--blue)">${{ totalInversion()|number:'1.0-0' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla proyección -->
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr>
+                <th>{{ t('galpon') }}</th><th>Aves Proyectadas</th>
+                <th>Ganancia Proyectada</th><th>ROI</th><th>Inversión Base</th>
+              </tr></thead>
+              <tbody>
+                <tr *ngFor="let p of proyeccionGanancia()" class="data-row">
+                  <td><span class="galpon-name"><span class="pulse-dot"></span>{{ p.galpon }}</span></td>
+                  <td class="td-mono">{{ p.avesProyectadas|number }}</td>
+                  <td class="td-mono td-green">${{ p.ganancia|number:'1.0-0' }}</td>
+                  <td>
+                    <span class="mort-badge" [class.mort-green]="p.roi>=10" [class.mort-amber]="p.roi>=0&&p.roi<10" [class.mort-red]="p.roi<0">
+                      {{ p.roi|number:'1.1-1' }}%
+                    </span>
+                  </td>
+                  <td class="td-mono">${{ p.inversion|number:'1.0-0' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Chart rentabilidad horizontal -->
+        <div class="card anim-up" style="animation-delay:.10s">
+          <div class="card__header">
+            <h3 class="card__title"><span class="material-icons-sharp">bar_chart</span>Ganancia Proyectada por Galpón</h3>
+          </div>
+          <div class="chart-body">
+            <div class="h-chart">
+              <div *ngFor="let p of proyeccionGanancia()" class="h-bar-row">
+                <span class="h-bar-label">{{ p.galpon }}</span>
+                <div class="h-bar-track">
+                  <div class="h-bar-fill" [style.width.%]="(p.ganancia/gananciaTotal())*100" [style.background]="p.roi>=10?'#34d399':p.roi>=0?'#60a5fa':'#f87171'"></div>
+                </div>
+                <span class="h-bar-val" style="width:80px">${{ p.ganancia|number:'1.0-0' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ╔══ CONFIG ════════════════════════════════════════════╗ -->
+      <ng-container *ngIf="activeNav()==='config'">
+        <div class="page__title-row anim-up">
+          <div><h1 class="page__title">{{ t('configTitle') }}</h1><p class="page__subtitle">{{ t('configSub') }}</p></div>
+        </div>
+        <div class="config-grid">
+
+          <!-- Usuario -->
+          <div class="card config-card anim-up" style="animation-delay:.05s">
+            <div class="config-section-title"><span class="material-icons-sharp">person</span>{{ t('usuario') }}</div>
+            <div class="user-profile-block">
+              <div class="profile-avatar-lg">{{ userInitials }}</div>
+              <div class="profile-info">
+                <ng-container *ngIf="!editingName()">
+                  <h2 class="profile-name">{{ userName() }}</h2>
+                  <p class="profile-role">{{ t('administrador') }}</p>
+                  <button class="btn-outline-sm mt8" (click)="startEditName()">
+                    <span class="material-icons-sharp">edit</span>{{ t('cambiarNombre') }}
+                  </button>
+                </ng-container>
+                <ng-container *ngIf="editingName()">
+                  <label class="field__label">{{ t('nombreUsuario') }}</label>
+                  <input class="field__input" [(ngModel)]="nameDraft" (keydown.enter)="saveUserName()" />
+                  <div class="btn-group-sm mt8">
+                    <button class="btn-cancel-sm" (click)="editingName.set(false)">{{ t('cancelar') }}</button>
+                    <button class="btn-save-sm" (click)="saveUserName()">{{ t('guardar') }}</button>
+                  </div>
+                </ng-container>
+                <span class="saved-chip" *ngIf="nameSaved()"><span class="material-icons-sharp">check</span>{{ t('guardado') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Apariencia -->
+          <div class="card config-card anim-up" style="animation-delay:.10s">
+            <div class="config-section-title"><span class="material-icons-sharp">palette</span>{{ t('apariencia') }}</div>
+            <div class="theme-options">
+              <button class="theme-btn" [class.theme-btn--active]="!darkMode()" (click)="darkMode.set(false)">
+                <div class="theme-preview theme-preview--light"><div class="tp-sidebar"></div><div class="tp-main"><div class="tp-bar"></div><div class="tp-card"></div></div></div>
+                <span class="material-icons-sharp" *ngIf="!darkMode()">check_circle</span>
+                <p>{{ t('modoClaro') }}</p>
+              </button>
+              <button class="theme-btn" [class.theme-btn--active]="darkMode()" (click)="darkMode.set(true)">
+                <div class="theme-preview theme-preview--dark"><div class="tp-sidebar"></div><div class="tp-main"><div class="tp-bar"></div><div class="tp-card"></div></div></div>
+                <span class="material-icons-sharp" *ngIf="darkMode()">check_circle</span>
+                <p>{{ t('modoOscuro') }}</p>
+              </button>
+            </div>
+          </div>
+
+          <!-- Idioma -->
+          <div class="card config-card config-card--wide anim-up" style="animation-delay:.15s">
+            <div class="config-section-title"><span class="material-icons-sharp">language</span>{{ t('idioma') }}</div>
+            <div class="lang-grid">
+              <button *ngFor="let code of langList" class="lang-btn" [class.lang-btn--active]="lang()===code" (click)="lang.set(code);saveToStorage()">
+                <span class="lang-flag">{{ langFlag(code) }}</span>
+                <span class="lang-name">{{ langNames[code] }}</span>
+                <span class="material-icons-sharp check-lang" *ngIf="lang()===code">check</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tour onboarding -->
+          <div class="card config-card anim-up" style="animation-delay:.20s">
+            <div class="config-section-title"><span class="material-icons-sharp">tour</span>Tour de Introducción</div>
+            <p style="font-size:.82rem;color:var(--text-2);margin-bottom:14px">Vuelve a ver el tour guiado de la aplicación.</p>
+            <button class="btn-outline" (click)="resetOnboarding()">
+              <span class="material-icons-sharp">replay</span>Ver tour de nuevo
+            </button>
+          </div>
+
+          <!-- Datos -->
+          <div class="card config-card anim-up" style="animation-delay:.25s">
+            <div class="config-section-title"><span class="material-icons-sharp">storage</span>Datos Locales</div>
+            <p style="font-size:.82rem;color:var(--text-2);margin-bottom:14px">{{ lotes().length }} lotes · {{ historial().length }} registros · {{ bajas().length }} bajas guardados en tu navegador.</p>
+            <button class="btn-outline" (click)="saveToStorage()">
+              <span class="material-icons-sharp">save</span>Guardar ahora
+            </button>
+          </div>
+
+        </div>
+      </ng-container>
+
+    </div><!-- /page -->
+  </div><!-- /main-area -->
+</div><!-- /layout-wrapper -->
+
+
+<!-- ══════════════════ MODAL LOTE ════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="modalAbierto()" (click)="cerrarModal()"></div>
+<div class="modal" *ngIf="modalAbierto()">
+  <div class="modal__header">
+    <div class="modal__title-row">
+      <div class="modal__icon"><span class="material-icons-sharp">{{ modalEdicion()?'edit':'add_circle' }}</span></div>
+      <div><h2 class="modal__title">{{ modalEdicion()?t('editarLote'):t('crearLote') }}</h2><p class="modal__sub">{{ t('datosGalpon') }}</p></div>
+    </div>
+    <button class="modal__close" (click)="cerrarModal()"><span class="material-icons-sharp">close</span></button>
+  </div>
+  <form [formGroup]="form" (ngSubmit)="guardarLote()" class="modal__form">
+    <div class="form-grid">
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">warehouse</span>{{ t('galpon') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('galpon')" type="text" formControlName="galpon" placeholder="Ej: Galpón A" />
+        <span class="field__err" *ngIf="campoInvalido('galpon')">{{ getError('galpon') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">calendar_today</span>{{ t('fechaIngreso') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('fechaIngreso')" type="date" formControlName="fechaIngreso" />
+        <span class="field__err" *ngIf="campoInvalido('fechaIngreso')">{{ getError('fechaIngreso') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">egg</span>{{ t('cantInicial') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('cantidadInicial')" type="number" formControlName="cantidadInicial" placeholder="Ej: 5000" />
+        <span class="field__err" *ngIf="campoInvalido('cantidadInicial')">{{ getError('cantidadInicial') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">sensors</span>{{ t('cantActual') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('cantidadActual')" type="number" formControlName="cantidadActual" placeholder="Ej: 4980" />
+        <span class="field__err" *ngIf="campoInvalido('cantidadActual')">{{ getError('cantidadActual') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">attach_money</span>{{ t('costoAve') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('costoUnitario')" type="number" step="0.01" formControlName="costoUnitario" placeholder="Ej: 2.50" />
+        <span class="field__err" *ngIf="campoInvalido('costoUnitario')">{{ getError('costoUnitario') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">trending_up</span>{{ t('precioVenta') }}</label>
+        <input class="field__input" [class.field__input--err]="campoInvalido('precioVentaEstimado')" type="number" step="0.01" formControlName="precioVentaEstimado" placeholder="Ej: 5.00" />
+        <span class="field__err" *ngIf="campoInvalido('precioVentaEstimado')">{{ getError('precioVentaEstimado') }}</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">scale</span>{{ t('pesoPromedio') }}</label>
+        <input class="field__input" type="number" step="0.1" formControlName="pesoPromedio" placeholder="Ej: 1.8" />
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">grass</span>{{ t('alimentoDiario') }}</label>
+        <input class="field__input" type="number" formControlName="alimentoDiario" placeholder="Ej: 320" />
+      </div>
+    </div>
+    <div class="modal__footer">
+      <button type="button" class="btn-cancel" (click)="cerrarModal()"><span class="material-icons-sharp">cancel</span>{{ t('cancelar') }}</button>
+      <button type="submit" class="btn-primary"><span class="material-icons-sharp">{{ modalEdicion()?'save':'add_task' }}</span>{{ modalEdicion()?t('guardarCambios'):t('crear') }}</button>
+    </div>
+  </form>
+</div>
+
+
+<!-- ══════════════════ MODAL BAJAS ═══════════════════════════ -->
+<div class="modal-backdrop" *ngIf="bajaModalOpen()" (click)="bajaModalOpen.set(false)"></div>
+<div class="modal" *ngIf="bajaModalOpen()">
+  <div class="modal__header">
+    <div class="modal__title-row">
+      <div class="modal__icon modal__icon--red"><span class="material-icons-sharp">remove_circle</span></div>
+      <div>
+        <h2 class="modal__title">{{ t('registrarBaja') }}</h2>
+        <p class="modal__sub">{{ loteBajaActual()?.galpon }} · {{ loteBajaActual()?.cantidadActual|number }} aves</p>
+      </div>
+    </div>
+    <button class="modal__close" (click)="bajaModalOpen.set(false)"><span class="material-icons-sharp">close</span></button>
+  </div>
+  <form [formGroup]="bajaForm" (ngSubmit)="guardarBaja()" class="modal__form">
+    <div class="form-grid">
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">pin</span>{{ t('cantBaja') }}</label>
+        <input class="field__input" [class.field__input--err]="bajaForm.get('cantidad')?.invalid && bajaForm.get('cantidad')?.touched"
+          type="number" formControlName="cantidad" min="1" placeholder="Ej: 10" />
+        <span class="field__err" *ngIf="bajaForm.get('cantidad')?.invalid && bajaForm.get('cantidad')?.touched">Mínimo 1.</span>
+      </div>
+      <div class="field">
+        <label class="field__label"><span class="material-icons-sharp">calendar_today</span>Fecha</label>
+        <input class="field__input" type="date" formControlName="fecha" />
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label class="field__label"><span class="material-icons-sharp">category</span>{{ t('causaBaja') }}</label>
+        <div class="causa-selector">
+          <button *ngFor="let c of causasBaja" type="button"
+            class="causa-btn" [class.causa-btn--active]="bajaForm.get('causa')?.value===c"
+            (click)="bajaForm.get('causa')?.setValue(c)">
+            <span class="material-icons-sharp">{{ c==='enfermedad'?'coronavirus':c==='accidente'?'report':c==='natural'?'eco':'help' }}</span>
+            {{ t('cause'+c.charAt(0).toUpperCase()+c.slice(1)) }}
+          </button>
+        </div>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label class="field__label"><span class="material-icons-sharp">notes</span>{{ t('notasBaja') }}</label>
+        <input class="field__input" type="text" formControlName="notas" placeholder="Opcional..." />
+      </div>
+    </div>
+    <div class="modal__footer">
+      <button type="button" class="btn-cancel" (click)="bajaModalOpen.set(false)"><span class="material-icons-sharp">cancel</span>{{ t('cancelar') }}</button>
+      <button type="submit" class="btn-danger"><span class="material-icons-sharp">remove_circle</span>Registrar Baja</button>
+    </div>
+  </form>
+</div>
+
+
+<!-- ══════════════════ MODAL IMPORTAR CSV ════════════════════ -->
+<div class="modal-backdrop" *ngIf="importModalOpen()" (click)="importModalOpen.set(false)"></div>
+<div class="modal modal--wide" *ngIf="importModalOpen()">
+  <div class="modal__header">
+    <div class="modal__title-row">
+      <div class="modal__icon modal__icon--violet"><span class="material-icons-sharp">upload_file</span></div>
+      <div><h2 class="modal__title">{{ t('importarCSV') }}</h2><p class="modal__sub">Columnas: galpon, cantidadInicial, cantidadActual, costoUnitario, precioVentaEstimado, fechaIngreso</p></div>
+    </div>
+    <button class="modal__close" (click)="importModalOpen.set(false)"><span class="material-icons-sharp">close</span></button>
+  </div>
+  <div class="modal__body-scroll" style="padding:20px 22px">
+    <div class="import-upload-zone">
+      <span class="material-icons-sharp import-upload-icon">cloud_upload</span>
+      <p>Arrastra tu CSV aquí o haz clic para seleccionar</p>
+      <input type="file" accept=".csv,.txt" class="import-file-input" (change)="onFileImport($event)" />
+    </div>
+    <div class="import-error" *ngIf="importError()">
+      <span class="material-icons-sharp">error</span>{{ importError() }}
+    </div>
+    <ng-container *ngIf="importPreview().length > 0">
+      <div class="import-preview-header">
+        <span>Vista previa — {{ importPreview().length }} lotes a importar</span>
+        <span class="count-chip">{{ importPreview().length }} lotes</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Galpón</th><th>Inicial</th><th>Actual</th><th>Costo</th><th>Precio</th><th>Fecha</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let p of importPreview()" class="data-row">
+              <td>{{ p.galpon }}</td><td>{{ p.cantidadInicial }}</td><td>{{ p.cantidadActual }}</td>
+              <td>${{ p.costoUnitario }}</td><td>${{ p.precioVentaEstimado }}</td><td>{{ p.fechaIngreso }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ng-container>
+  </div>
+  <div class="modal__footer" style="padding:16px 22px;border-top:1px solid var(--border)">
+    <button class="btn-cancel" (click)="importModalOpen.set(false)"><span class="material-icons-sharp">cancel</span>{{ t('cancelar') }}</button>
+    <button class="btn-primary" [disabled]="importPreview().length===0" (click)="confirmarImport()">
+      <span class="material-icons-sharp">check_circle</span>Importar {{ importPreview().length }} lotes
+    </button>
+  </div>
+</div>
+
+
+<!-- ══════════════════ MODAL HISTORIAL COMPLETO ══════════════ -->
+<div class="modal-backdrop" *ngIf="historialModalOpen()" (click)="historialModalOpen.set(false)"></div>
+<div class="modal modal--wide" *ngIf="historialModalOpen()">
+  <div class="modal__header">
+    <div class="modal__title-row">
+      <div class="modal__icon modal__icon--violet"><span class="material-icons-sharp">history</span></div>
+      <div><h2 class="modal__title">{{ t('historialCambios') }}</h2><p class="modal__sub">Registro completo de operaciones</p></div>
+    </div>
+    <div class="modal-header-actions">
+      <button class="btn-outline-sm" (click)="exportarHistorialPDF()"><span class="material-icons-sharp">picture_as_pdf</span>{{ t('descargarPDF') }}</button>
+      <button class="modal__close" (click)="historialModalOpen.set(false)"><span class="material-icons-sharp">close</span></button>
+    </div>
+  </div>
+  <div class="modal__body-scroll">
+    <ng-container *ngIf="historial().length>0; else noHistModal">
+      <table class="data-table">
+        <thead><tr><th>Fecha y Hora</th><th>Tipo</th><th>Descripción</th><th>Detalle</th><th>Usuario</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let h of historial(); trackBy:trackById" class="data-row">
+            <td class="td-date">{{ formatTime(h.timestamp) }}</td>
+            <td><span class="hist-chip" [ngClass]="historialClass(h.tipo)">{{ h.tipo.toUpperCase() }}</span></td>
+            <td>{{ h.descripcion }}</td>
+            <td class="td-detail">{{ h.detalle }}</td>
+            <td>{{ h.usuario }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </ng-container>
+    <ng-template #noHistModal>
+      <div class="empty-page"><span class="material-icons-sharp">history</span><p>{{ t('sinHistorial') }}</p></div>
+    </ng-template>
+  </div>
+</div>
